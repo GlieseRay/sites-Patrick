@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8"/>
+    <title>Boba Georef</title>
+    <meta name="viewport"
+          content="initial-scale=1,maximum-scale=1,user-scalable=no"/>
+    <script src="https://code.jquery.com/jquery-2.2.4.min.js"
+            integrity="sha256-BbhdlvQf/xTY9gja0Dq3HiwQF8LaCRTXxZKRutelT44="
+            crossorigin="anonymous"></script>
+            
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.0.3/dist/leaflet.css"
+       integrity="sha512-07I2e+7D8p6he1SIM+1twR5TIrhUQn9+I6yjqD53JQjFiMf8EtC93ty0/5vJTZGF8aAocvHYNEDJajGdNx1IsQ=="
+       crossorigin=""/>
+    <script src="https://unpkg.com/leaflet@1.0.3/dist/leaflet.js"
+      integrity="sha512-A7vV8IFfih/D732iSSKi20u/ooOfj/AGehOKq0f4vLT1Zr2Y+RX7C+w8A1gaSasGtRUZpF/NZgzSAu4/Gc41Lg=="
+      crossorigin=""></script>
+    <script src="data/nps_boundary.js"></script>
+
+    <script src="https://cdn.jsdelivr.net/semantic-ui/2.2.10/semantic.min.js"></script>
+    <link href="https://cdn.jsdelivr.net/semantic-ui/2.2.10/semantic.min.css"
+          rel="stylesheet">
+
+    <style>
+
+        .ui.category.search .results {
+            width: 28em;
+            height: 38em;
+            overflow-y: scroll;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+        }
+
+        #map {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            width: 100%;
+            z-index: 100;
+        }
+    </style>
+</head>
+
+<div class="ui fixed menu">
+    <div class="ui search item">
+        <div class="ui icon input">
+            <input class="prompt" type="text" placeholder="Search">
+            <i class="search link icon"></i>
+        </div>
+        <div class="results"></div>
+    </div>
+    <div class="ui circular labels item">
+        <div class="ui label">
+            Hits
+            <div class="metadata hits detail">0</div>
+        </div>
+        <div class="ui label">
+            Time
+            <div class="metadata time detail">0</div>
+            s
+        </div>
+
+    </div>
+
+</div>
+
+<div id="map" class="ui bottom"></div>
+
+</body>
+
+<script>
+    
+    function buildLayer(theme, extension, minZoom, maxZoom, attribution) {
+      var offset = 0;
+      if (L.Browser.retina) {
+        offset = 1;
+      }
+      return L.tileLayer('https://{s}.{host}/{theme}/{z}/{x}/{y}{extension}', {
+        host: 'tile.knrdesign.co',
+        theme: theme,
+        extension: extension,
+        attribution: attribution,
+        minZoom: minZoom + offset,
+        maxZoom: maxZoom + offset,
+        detectRetina: true,
+        errorTileUrl: 'https://cdn.knrdesign.co/assets/404.png'
+      });
+    }
+    
+    function buildSearchData(geojson) {
+      var data = [];
+      
+      var features = geojson["features"]
+      for (var i in features) {
+        data.push(
+          {
+            title: features[i]["properties"]["UNIT_NAME"],
+            category: features[i]["properties"]["UNIT_TYPE"],
+            description: "State: " + features[i]["properties"]["STATE"] + " Region: " + features[i]["properties"]["REGION"],
+            lon: features[i]["geometry"]["coordinates"][0],
+            lat: features[i]["geometry"]["coordinates"][1],
+          }
+        )
+      }
+      
+      return data
+    }
+    
+        
+    var attribution = 'Map data: OSM, USGS, NPS, Design by: <i>K&R</i>';
+    
+    var layers = {};
+    if (L.Browser.retina) {
+      layers['patrick-mk1'] = buildLayer(
+        'patrick_mark1', '@2x.png', 4, 15, attribution);
+    } else {
+      layers['patrick-mk1'] = buildLayer(
+        'patrick_mark1', '.png', 4, 15, attribution);
+    }
+    
+    var map = L.map('map', {
+        layers: [layers['patrick-mk1']],
+        center: [48.7, -113.7], // starting position
+        zoom: 11, // starting zoom,
+        zoomControl: false
+    });
+    
+    L.control.scale({position: "bottomright"}).addTo(map);
+    L.control.zoom({position: "bottomright"}).addTo(map);
+    
+
+    var search_data = buildSearchData(nps_boundary);
+
+    $(".ui.search")
+        .search({
+            type: "standard",
+            source: search_data,
+            minCharacters: 2,
+            searchDelay: 500,
+            maxResults: 10,
+            cache: true,
+            showNoResults: true,
+            searchFields:["title"],
+            fields: {
+                categories: 'results', // array of categories (category view)
+                categoryName: 'category', // name of category (category view)
+                categoryResults: 'results', // array of results (category view)
+                description: 'description', // result description
+                image: 'image', // result image
+                price: 'adminname', // result price
+                results: 'results', // array of results (standard)
+                title: 'title', // result title
+                action: 'action', // "view more" object name
+                actionText: 'text', // "view more" text
+                actionURL: 'url' // "view more" url
+            },
+            onSelect: function (result, response) {
+                map.flyTo([result.lat, result.lon]);
+                //$('.ui.search').search('hide results');
+                return false;
+            },
+            onResults: function (response) {
+                $('.metadata.hits').html(
+                  response.results.length
+                );
+                $('.metadata.time').html(
+                  0
+                );
+            }
+        });
+
+    map.on('dragend', function () {
+        $('.ui.search')
+            .search('clear cache')
+        ;
+    });
+
+
+</script>
+</html>
